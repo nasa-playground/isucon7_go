@@ -136,8 +136,7 @@ func createImageFile() (int, error) {
 
 	for i := len(images) - 1; i >= 0; i-- {
 		image := images[i]
-    filepath := "../public/image/" + image.Name
-    log.Printf("filepath %s", filepath)
+    filepath := "../public/icons/" + image.Name
 
     ioutil.WriteFile(filepath, image.Data, os.ModePerm)
 	}
