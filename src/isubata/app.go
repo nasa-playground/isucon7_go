@@ -231,6 +231,9 @@ func getInitialize(c echo.Context) error {
 	db.MustExec("DELETE FROM channel WHERE id > 10")
 	db.MustExec("DELETE FROM message WHERE id > 10000")
 	db.MustExec("DELETE FROM haveread")
+
+  _, err := createImageFile()
+  if err != nil { return err }
 	return c.String(204, "")
 }
 
