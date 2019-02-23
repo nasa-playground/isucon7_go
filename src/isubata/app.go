@@ -484,11 +484,11 @@ func fetchUnread(c echo.Context) error {
 		var cnt int64
 		if lastID > 0 {
 			err = db.Get(&cnt,
-				"SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id",
+				"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ? AND ? < id",
 				chID, lastID)
 		} else {
 			err = db.Get(&cnt,
-				"SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?",
+				"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
 				chID)
 		}
 		if err != nil {
@@ -527,7 +527,7 @@ func getHistory(c echo.Context) error {
 
 	const N = 20
 	var cnt int64
-	err = db.Get(&cnt, "SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?", chID)
+	err = db.Get(&cnt, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", chID)
 	if err != nil {
 		return err
 	}
@@ -686,12 +686,13 @@ func postProfile(c echo.Context) error {
 	}
 
 	if avatarName != "" && len(avatarData) > 0 {
-		_, err := db.Exec("INSERT INTO image (name, data) VALUES (?, ?)", avatarName, avatarData)
-		if err != nil {
-			return err
-		}
-    // filepath := "../public/image/" + avatarName
-    // ioutil.WriteFile(filepath, avatarData, os.ModePerm)
+		// _, err := db.Exec("INSERT INTO image (name, data) VALUES (?, ?)", avatarName, avatarData)
+		// if err != nil {
+		// 	return err
+		// }
+
+    filepath := "../public/icons/" + avatarName
+    ioutil.WriteFile(filepath, avatarData, os.ModePerm)
 
 		_, err = db.Exec("UPDATE user SET avatar_icon = ? WHERE id = ?", avatarName, self.ID)
 		if err != nil {
