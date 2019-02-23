@@ -122,6 +122,29 @@ type Message struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
+type Image struct {
+  ID int64 `db:"id"`
+  Name string `db:"name"`
+  Data []byte `db:"data"`
+}
+
+func createImageFile() (int, error) {
+	images:= []Image{}
+	err := db.Select(&images, "SELECT * FROM image")
+  if err != nil { return 0, err }
+
+
+	for i := len(images) - 1; i >= 0; i-- {
+		image := images[i]
+    filepath := "../public/image/" + image.Name
+    log.Printf("filepath %s", filepath)
+
+    ioutil.WriteFile(filepath, image.Data, os.ModePerm)
+	}
+
+  return 0, nil
+}
+
 func queryMessages(chanID, lastID int64) ([]Message, error) {
 	msgs := []Message{}
 	err := db.Select(&msgs, "SELECT * FROM message WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100",
