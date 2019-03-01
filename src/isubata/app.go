@@ -275,7 +275,6 @@ func getCachedMessagesCount(id int64) (int64, error) {
   message_count, err := redis_client.Get(fmt.Sprintf("channel_%v", id)).Result()
   if err == redis.Nil {
     var count int64
-    log.Println("cache not hit")
     err := db.Get(&count, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", id)
     if err != nil {
       return 0, err
