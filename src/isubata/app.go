@@ -117,7 +117,7 @@ func addMessage(channelID, userID int64, content string) (int64, error) {
 		"INSERT INTO message (channel_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())",
 		channelID, userID, content)
 
-    redis_client.Incr(fmt.Sprintf("channel_%v", channelID))
+  redis_client.Incr(fmt.Sprintf("channel_%v", channelID))
 	if err != nil {
 		return 0, err
 	}
@@ -275,6 +275,7 @@ func getCachedMessagesCount(id int64) (int64, error) {
   if err == redis.Nil {
     var count int64
     err := db.Get(&count, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", id)
+
     if err != nil {
       return 0, err
     }
@@ -737,6 +738,7 @@ func postAddChannel(c echo.Context) error {
 		return err
 	}
 	lastID, _ := res.LastInsertId()
+  err = redis_client.Set(fmt.Sprintf("channel_%v", lastID), 0, 0).Err()
 	return c.Redirect(http.StatusSeeOther,
 		fmt.Sprintf("/channel/%v", lastID))
 }
@@ -781,8 +783,17 @@ func postProfile(c echo.Context) error {
 		avatarName = fmt.Sprintf("%x%s", sha1.Sum(avatarData), ext)
 	}
 
-	if avatarName != "" && len(avatarData) > 0 {
+  name := c.FormValue("display_name");
 
+	if avatarName != "" && len(avatarData) > 0 && name != ""{
+    filepath := "../public/icons/" + avatarName
+    ioutil.WriteFile(filepath, avatarData, os.ModePerm)
+
+		_, err = db.Exec("UPDATE user SET avatar_icon = ?, display_name = ? WHERE id = ?", avatarName, name, self.ID)
+		if err != nil {
+			return err
+		}
+	} else if avatarName != "" && len(avatarData) > 0{
     filepath := "../public/icons/" + avatarName
     ioutil.WriteFile(filepath, avatarData, os.ModePerm)
 
@@ -790,9 +801,7 @@ func postProfile(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	if name := c.FormValue("display_name"); name != "" {
+  } else if name != "" {
 		_, err := db.Exec("UPDATE user SET display_name = ? WHERE id = ?", name, self.ID)
 		if err != nil {
 			return err
