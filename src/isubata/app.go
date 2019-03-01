@@ -459,14 +459,17 @@ func getMessage(c echo.Context) error {
 	}
 
 	response := make([]map[string]interface{}, 0)
+
+  // メッセージを逆順にする必要がある
+  reverse := make([]Message, 0, len(messages))
 	for i := len(messages) - 1; i >= 0; i-- {
 		m := messages[i]
-    // FIXME N+1
-		r, err := jsonifyMessage(m)
-		if err != nil {
-			return err
-		}
-		response = append(response, r)
+		reverse = append(reverse, m)
+  }
+
+  response, err = jsonifyMessages(reverse)
+	if err != nil {
+		return err
 	}
 
 	if len(messages) > 0 {
@@ -596,13 +599,16 @@ func getHistory(c echo.Context) error {
 		return err
 	}
 
-	mjson := make([]map[string]interface{}, 0)
+  // メッセージを逆順にする必要がある
+  reverse := make([]Message, 0, len(messages))
 	for i := len(messages) - 1; i >= 0; i-- {
-		r, err := jsonifyMessage(messages[i])
-		if err != nil {
-			return err
-		}
-		mjson = append(mjson, r)
+		m := messages[i]
+		reverse = append(reverse, m)
+  }
+
+  mjson, err := jsonifyMessages(reverse)
+	if err != nil {
+		return err
 	}
 
 	channels := []ChannelInfo{}
