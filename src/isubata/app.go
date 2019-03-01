@@ -244,6 +244,27 @@ func getInitialize(c echo.Context) error {
 	return c.String(204, "")
 }
 
+func cacheMessageCount() error {
+	channels := []ChannelInfo{}
+	err := db.Select(&channels, "SELECT id FROM channel")
+
+  for _, c := range channels {
+    id := c.ID
+    var count int64
+    err = db.Get(&count, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", id)
+    if err != nil {
+      return err
+    }
+
+    err = redis_client.Set(fmt.Sprintf("channel_%v", id), count, 0).Err()
+    if err != nil {
+      return err
+    }
+  }
+
+  return nil
+}
+
 func getIndex(c echo.Context) error {
 	userID := sessUserID(c)
 	if userID != 0 {
