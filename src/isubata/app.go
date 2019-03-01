@@ -265,6 +265,30 @@ func cacheMessageCount() error {
   return nil
 }
 
+func getCachedMessagesCount(id int64) (int64, error) {
+  message_count, err := redis_client.Get(fmt.Sprintf("channel_%v", id)).Result()
+  if err == redis.Nil {
+    var count int64
+    log.Println("cache not hit")
+    err := db.Get(&count, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", id)
+    if err != nil {
+      return 0, err
+    }
+
+    err = redis_client.Set(fmt.Sprintf("channel_%v", id), count, 0).Err()
+    if err != nil {
+      return 0, err
+    }
+
+    return count, nil
+  } else if err != nil {
+    return 0, err
+  }
+  count, _ := strconv.ParseInt(message_count, 10, 64)
+    log.Println("hit!!")
+  return count, nil
+}
+
 func getIndex(c echo.Context) error {
 	userID := sessUserID(c)
 	if userID != 0 {
