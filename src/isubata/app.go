@@ -116,6 +116,8 @@ func addMessage(channelID, userID int64, content string) (int64, error) {
 	res, err := db.Exec(
 		"INSERT INTO message (channel_id, user_id, content, created_at) VALUES (?, ?, ?, NOW())",
 		channelID, userID, content)
+
+    redis_client.Incr(fmt.Sprintf("channel_%v", channelID))
 	if err != nil {
 		return 0, err
 	}
@@ -238,6 +240,10 @@ func getInitialize(c echo.Context) error {
 	db.MustExec("DELETE FROM channel WHERE id > 10")
 	db.MustExec("DELETE FROM message WHERE id > 10000")
 	db.MustExec("DELETE FROM haveread")
+  err := cacheMessageCount()
+  if err != nil {
+    panic(err)
+  }
 
   // _, err := createImageFile()
   // if err != nil { return err }
@@ -456,7 +462,6 @@ func jsonifyMessages(messages []Message) ([]map[string]interface{}, error) {
   users := []User{}
   query, args, err := sqlx.In("SELECT id, name, display_name, avatar_icon FROM user WHERE id IN (?);", user_ids)
   err = db.Select(&users, query, args...)
-  fmt.Println(users)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +470,6 @@ func jsonifyMessages(messages []Message) ([]map[string]interface{}, error) {
   for _, u := range users {
     users_map[u.ID] = u
   }
-  fmt.Println(len(users_map))
 
 	jsons := make([]map[string]interface{}, 0, len(messages))
 
@@ -584,9 +588,10 @@ func fetchUnread(c echo.Context) error {
 				"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ? AND ? < id",
 				chID, lastID)
 		} else {
-			err = db.Get(&cnt,
-				"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
-				chID)
+      cnt, err = getCachedMessagesCount(chID)
+			// err = db.Get(&cnt,
+			// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
+			// 	chID)
 		}
 		if err != nil {
 			return err
@@ -623,8 +628,8 @@ func getHistory(c echo.Context) error {
 	}
 
 	const N = 20
-	var cnt int64
-	err = db.Get(&cnt, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", chID)
+  cnt, err := getCachedMessagesCount(chID)
+	// err = db.Get(&cnt, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", chID)
 	if err != nil {
 		return err
 	}
