@@ -290,7 +290,27 @@ func getCachedMessagesCount(id int64) (int64, error) {
     return 0, err
   }
   count, _ := strconv.ParseInt(message_count, 10, 64)
-    log.Println("hit!!")
+  return count, nil
+}
+
+func getReadCount(userID int64, chID int64) (int64, error) {
+  read_count, err := redis_client.Get(fmt.Sprintf("read_count_user_%v_channel_%v",userID, chID)).Result()
+
+  if err == redis.Nil {
+    // count, err := getCachedMessagesCount(chID)
+    // if err != nil {
+    //   return 0, err
+    // }
+
+    err = redis_client.Set(fmt.Sprintf("read_count_user_%v_channel_%v",userID, chID), 0, 0).Err()
+    if err != nil {
+      return 0, err
+    }
+
+    return 0, nil
+  } else if err != nil { return 0, err }
+
+  count, _ := strconv.ParseInt(read_count, 10, 64)
   return count, nil
 }
 
@@ -516,19 +536,22 @@ func getMessage(c echo.Context) error {
   }
 
   response, err = jsonifyMessages(reverse)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
-	if len(messages) > 0 {
-		_, err := db.Exec("INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)"+
-			" VALUES (?, ?, ?, NOW(), NOW())"+
-			" ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()",
-			userID, chanID, messages[0].ID, messages[0].ID)
-		if err != nil {
-			return err
-		}
-	}
+  message_count, err := getCachedMessagesCount(chanID)
+	if err != nil { return err }
+
+  err = redis_client.Set(fmt.Sprintf("read_count_user_%v_channel_%v", userID, chanID), message_count, 0).Err()
+  if err != nil { return err }
+	// if len(messages) > 0 {
+	// 	_, err := db.Exec("INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)"+
+	// 		" VALUES (?, ?, ?, NOW(), NOW())"+
+	// 		" ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()",
+	// 		userID, chanID, messages[0].ID, messages[0].ID)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -566,8 +589,6 @@ func fetchUnread(c echo.Context) error {
 		return c.NoContent(http.StatusForbidden)
 	}
 
-  time.Sleep(time.Second)
-
 	channels, err := queryChannels()
 	if err != nil {
 		return err
@@ -576,25 +597,34 @@ func fetchUnread(c echo.Context) error {
 	resp := []map[string]interface{}{}
 
 	for _, chID := range channels {
-		lastID, err := queryHaveRead(userID, chID)
-		if err != nil {
-			return err
-		}
+    // FIX N+1
+		// lastID, err := queryHaveRead(userID, chID)
+		// if err != nil {
+		// 	return err
+		// }
+    //
+		// var cnt int64
+		// if lastID > 0 {
+    //   cnt, err = getCachedMessagesLesentCount(chID, lastID)
+		// 	// err = db.Get(&cnt,
+		// 	// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ? AND id > ?",
+		// 	// 	chID, lastID)
+		// } else {
+    //   cnt, err = getCachedMessagesCount(chID)
+		// 	// err = db.Get(&cnt,
+		// 	// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
+		// 	// 	chID)
+		// }
+		// if err != nil {
+		// 	return err
+		// }
 
-		var cnt int64
-		if lastID > 0 {
-			err = db.Get(&cnt,
-				"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ? AND ? < id",
-				chID, lastID)
-		} else {
-      cnt, err = getCachedMessagesCount(chID)
-			// err = db.Get(&cnt,
-			// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
-			// 	chID)
-		}
-		if err != nil {
-			return err
-		}
+    message_count, err := getCachedMessagesCount(chID)
+    if err != nil { return err }
+    read_count, err := getReadCount(userID, chID)
+    if err != nil { return err }
+
+    cnt := message_count - read_count
 		r := map[string]interface{}{
 			"channel_id": chID,
 			"unread":     cnt}
@@ -642,7 +672,7 @@ func getHistory(c echo.Context) error {
 
 	messages := []Message{}
 	err = db.Select(&messages,
-		"SELECT * FROM message WHERE channel_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+    "SELECT * from message, (select id from message where channel_id = ? order by id desc limit ? offset ? ) as t  where t.id = message.id",
 		chID, N, (page-1)*N)
 	if err != nil {
 		return err
