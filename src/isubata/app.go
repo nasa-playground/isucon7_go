@@ -241,12 +241,11 @@ func getInitialize(c echo.Context) error {
 	db.MustExec("DELETE FROM message WHERE id > 10000")
 	db.MustExec("DELETE FROM haveread")
   err := cacheMessageCount()
+
   if err != nil {
     panic(err)
   }
 
-  // _, err := createImageFile()
-  // if err != nil { return err }
 	return c.String(204, "")
 }
 
@@ -297,11 +296,6 @@ func getReadCount(userID int64, chID int64) (int64, error) {
   read_count, err := redis_client.Get(fmt.Sprintf("read_count_user_%v_channel_%v",userID, chID)).Result()
 
   if err == redis.Nil {
-    // count, err := getCachedMessagesCount(chID)
-    // if err != nil {
-    //   return 0, err
-    // }
-
     err = redis_client.Set(fmt.Sprintf("read_count_user_%v_channel_%v",userID, chID), 0, 0).Err()
     if err != nil {
       return 0, err
@@ -543,15 +537,6 @@ func getMessage(c echo.Context) error {
 
   err = redis_client.Set(fmt.Sprintf("read_count_user_%v_channel_%v", userID, chanID), message_count, 0).Err()
   if err != nil { return err }
-	// if len(messages) > 0 {
-	// 	_, err := db.Exec("INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at)"+
-	// 		" VALUES (?, ?, ?, NOW(), NOW())"+
-	// 		" ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()",
-	// 		userID, chanID, messages[0].ID, messages[0].ID)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -597,28 +582,6 @@ func fetchUnread(c echo.Context) error {
 	resp := []map[string]interface{}{}
 
 	for _, chID := range channels {
-    // FIX N+1
-		// lastID, err := queryHaveRead(userID, chID)
-		// if err != nil {
-		// 	return err
-		// }
-    //
-		// var cnt int64
-		// if lastID > 0 {
-    //   cnt, err = getCachedMessagesLesentCount(chID, lastID)
-		// 	// err = db.Get(&cnt,
-		// 	// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ? AND id > ?",
-		// 	// 	chID, lastID)
-		// } else {
-    //   cnt, err = getCachedMessagesCount(chID)
-		// 	// err = db.Get(&cnt,
-		// 	// 	"SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?",
-		// 	// 	chID)
-		// }
-		// if err != nil {
-		// 	return err
-		// }
-
     message_count, err := getCachedMessagesCount(chID)
     if err != nil { return err }
     read_count, err := getReadCount(userID, chID)
@@ -658,7 +621,6 @@ func getHistory(c echo.Context) error {
 
 	const N = 20
   cnt, err := getCachedMessagesCount(chID)
-	// err = db.Get(&cnt, "SELECT COUNT(1) as cnt FROM message WHERE channel_id = ?", chID)
 	if err != nil {
 		return err
 	}
@@ -820,10 +782,6 @@ func postProfile(c echo.Context) error {
 	}
 
 	if avatarName != "" && len(avatarData) > 0 {
-		// _, err := db.Exec("INSERT INTO image (name, data) VALUES (?, ?)", avatarName, avatarData)
-		// if err != nil {
-		// 	return err
-		// }
 
     filepath := "../public/icons/" + avatarName
     ioutil.WriteFile(filepath, avatarData, os.ModePerm)
