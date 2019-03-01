@@ -780,7 +780,7 @@ func postProfile(c echo.Context) error {
 			return ErrBadReqeust
 		}
 
-		avatarName = fmt.Sprintf("%x%s", sha1.Sum(avatarData), ext)
+		avatarName = fmt.Sprintf("%x%s", self.ID, ext)
 	}
 
   name := c.FormValue("display_name");
