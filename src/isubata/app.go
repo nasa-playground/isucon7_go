@@ -399,6 +399,45 @@ func jsonifyMessage(m Message) (map[string]interface{}, error) {
 	return r, nil
 }
 
+func jsonifyMessages(messages []Message) ([]map[string]interface{}, error) {
+  if len(messages) == 0 {
+    return nil, nil
+  }
+  user_ids := []int64{}
+  for _, m := range messages {
+    user_ids = append(user_ids, m.UserID)
+  }
+
+  users := []User{}
+  query, args, err := sqlx.In("SELECT id, name, display_name, avatar_icon FROM user WHERE id IN (?);", user_ids)
+  err = db.Select(&users, query, args...)
+  fmt.Println(users)
+	if err != nil {
+		return nil, err
+	}
+
+  users_map := map[int64]User{}
+  for _, u := range users {
+    users_map[u.ID] = u
+  }
+  fmt.Println(len(users_map))
+
+	jsons := make([]map[string]interface{}, 0, len(messages))
+
+  for _, m := range messages {
+    j := make(map[string]interface{})
+    j["id"] = m.ID
+    j["user"] = users_map[m.UserID]
+    j["date"] = m.CreatedAt.Format("2006/01/02 15:04:05")
+    j["content"] = m.Content
+
+    jsons = append(jsons, j)
+
+  }
+
+  return jsons, nil
+}
+
 func getMessage(c echo.Context) error {
 	userID := sessUserID(c)
 	if userID == 0 {
