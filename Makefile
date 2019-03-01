@@ -6,3 +6,5 @@ build:
 
 vet:
 	go vet ./src/isubata/...
+dep:
+	cd src/isubata && dep ensure 
